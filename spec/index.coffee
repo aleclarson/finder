@@ -1,28 +1,43 @@
 
-describe "Finder", ->
+describe "Finder()", ->
 
-  describe "(constructor)", ->
+  it "supports a RegExp as the first argument", ->
+    try find = Finder /foo/
+    catch error then expect(error).toBeFalsy()
 
-    it "accepts a RegExp", ->
-      try
-        find = Finder /foo/
-      catch error
-        expect error
-          .toBeFalsy()
+  it "supports a String as the first argument", ->
+    try find = Finder "foo"
+    catch error then expect(error).toBeFalsy()
 
-    it "accepts a String", ->
-      try
-        find = Finder "foo"
-      catch error
-        expect error
-          .toBeFalsy()
+  it "throws if the first argument isn't a String or RegExp", ->
+    try find = Finder()
+    catch error then expect(error).toBeTruthy()
 
-    it "fails if not a RegExp or String", ->
-      try
-        find = Finder()
-      catch error
-        expect error
-          .toBeTruthy()
+  # it "sets the 'pattern' property", ->
+  #   find = Finder "foo"
+
+  # it "sets the 'group' property", ->
+  #   find = Finder "foo"
+
+  # it "sets the 'constructor' property", ->
+  #   find = Finder "foo"
+
+
+describe "finder()", ->
+
+  it "supports a String as the first argument", ->
+
+  it "throws if the first argument isn't a String", ->
+
+  it "sets the 'target' property", ->
+
+  it "sets the 'offset' property", ->
+
+  it "returns the first match", ->
+
+describe "finder.next()", ->
+
+
 
     describe "(aftermath)", ->
 

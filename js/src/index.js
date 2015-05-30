@@ -1,41 +1,46 @@
 (function() {
-  var Finder, _defaultFinder, _getGroups, _getRegexFlags, _parenRegex, _regexFlags, _setRegexFlags, _tempTarget, define, ref, setKind, setType;
+  var Finder, _defaultFinder, _getGroups, _getRegexFlags, _parenRegex, _regexFlags, _regexWillBeSet, _setRegexFlags, _tempTarget, define, ref, setKind, setType, targetWillBeSet;
 
-  require("lotus-require");
+  require("../../../lotus-require");
 
   define = require("define");
 
   ref = require("type-utils"), setType = ref.setType, setKind = ref.setKind;
 
-  Finder = module.exports = function(regex) {
-    var finder;
+  Finder = module.exports = function(options) {
+    var finder, regex;
+    if ((options instanceof RegExp) || (typeof options === "string")) {
+      regex = options;
+      options = {
+        regex: regex
+      };
+    }
     finder = function(target) {
       finder.target = target;
       return finder.next();
     };
     setType(finder, Finder);
-    define.options = {
-      configurable: false
-    };
-    define(finder, {
-      target: {
-        value: "",
-        willSet: function(newValue) {
-          var error;
-          if (typeof newValue !== "string") {
-            error = TypeError("'target' must be a String.");
-            error.code = "BAD_TARGET_TYPE";
-            throw error;
-          }
-          this.offset = 0;
-          return newValue;
+    define(finder, function() {
+      this.options = {
+        configurable: false,
+        enumerable: false
+      };
+      this({
+        _groups: [],
+        _regex: {
+          assign: options.regex,
+          willSet: _regexWillBeSet
         }
-      },
-      _groups: {
-        value: []
-      }
+      });
+      this.enumerable = true;
+      return this({
+        group: options.group || (finder.groups.length > 1 ? 1 : 0),
+        target: {
+          value: options.target || "",
+          willSet: targetWillBeSet
+        }
+      });
     });
-    finder._regex = regex;
     return finder;
   };
 
@@ -150,11 +155,13 @@
           }
         }
       });
-      this.options.writable = true;
+      this.writable = true;
       this({
         offset: {
           get: function() {
-            return this._regex.lastIndex;
+            if (this._regex != null) {
+              return this._regex.lastIndex;
+            }
           },
           set: function(newValue) {
             var error;
@@ -171,21 +178,11 @@
             return this._regex.lastIndex = newValue;
           }
         },
-        group: {
-          value: 0,
-          willSet: function(newValue) {
-            if (!(newValue >= 0)) {
-              throw RangeError("You must pass a Number >= 0 when setting @group.");
-            }
-            if (!(newValue < this.groups.length)) {
-              throw RangeError("You must pass a Number < " + this.groups.length + " when setting @group.");
-            }
-            return newValue;
-          }
-        },
         pattern: {
           get: function() {
-            return this._regex.source;
+            if (this._regex != null) {
+              return this._regex.source;
+            }
           },
           set: function(newValue) {
             var flags;
@@ -195,25 +192,6 @@
             newValue = newValue.replace("\\", "\\\\");
             this._regex = RegExp(newValue, flags);
             return this.offset = 0;
-          }
-        },
-        _regex: {
-          enumerable: false,
-          willSet: function(newValue, oldValue) {
-            if (newValue == null) {
-              newValue = "";
-            }
-            if (typeof newValue === "string") {
-              this.pattern = newValue;
-              return this._regex;
-            } else if (newValue instanceof RegExp) {
-              newValue = newValue.global ? newValue : _setRegexFlags(newValue, {
-                global: true
-              });
-              this._groups = _getGroups(newValue);
-              return newValue;
-            }
-            throw TypeError("You must pass either a RegExp or String when setting @_regex.");
           }
         }
       });
@@ -243,12 +221,41 @@
 
   /* PRIVATE VARS */
 
+  targetWillBeSet = function(target) {
+    var error;
+    if (typeof target !== "string") {
+      error = TypeError("'target' must be a String.");
+      error.code = "BAD_TARGET_TYPE";
+      throw error;
+    }
+    this.offset = 0;
+    return target;
+  };
+
   _parenRegex = /(\||\(|\))/g;
 
   _regexFlags = {
     global: "g",
     ignoreCase: "i",
     multiline: "m"
+  };
+
+  _regexWillBeSet = function(regex) {
+    if (regex == null) {
+      regex = "";
+    }
+    if (typeof regex === "string") {
+      this.pattern = regex;
+      return this._regex;
+    } else if (regex instanceof RegExp) {
+      regex = regex.global ? regex : _setRegexFlags(regex, {
+        global: true
+      });
+      this._groups = _getGroups(regex);
+      return regex;
+    } else {
+      throw TypeError("You must pass either a RegExp or String when setting @_regex.");
+    }
   };
 
   _getRegexFlags = function(input, output) {

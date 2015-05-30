@@ -1,8 +1,8 @@
 
-# finder v1.0.0 [![stable](http://badges.github.io/stability-badges/dist/stable.svg)](http://github.com/badges/stability-badges)
+# finder v1.0.1 [![stable](http://badges.github.io/stability-badges/dist/stable.svg)](http://github.com/badges/stability-badges)
 
 ```sh
-npm install aleclarson/finder#1.0.0
+npm install aleclarson/finder#1.0.1
 ```
 
 ```CoffeeScript
@@ -166,6 +166,11 @@ Construct an instance of `Finder`.
 find = Finder "[a-z]+"
 
 find = Finder /[a-z]+/
+
+find = Finder
+  regex: /[a-z]+/
+  target: "some string"
+  group: 0
 ```
 
 -

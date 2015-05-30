@@ -1,9 +1,13 @@
 
-require "lotus-require"
+require "../../../lotus-require"
 define = require "define"
 { setType, setKind } = require "type-utils"
 
-Finder = module.exports = (regex) ->
+Finder = module.exports = (options) ->
+
+  if (options instanceof RegExp) or (typeof options is "string")
+    regex = options
+    options = { regex }
 
   finder = (target) ->
     finder.target = target
@@ -11,28 +15,23 @@ Finder = module.exports = (regex) ->
 
   setType finder, Finder
 
-  define.options =
-    configurable: no
+  define finder, ->
+    
+    @options = configurable: no, enumerable: no
+    @
+      _groups: []
 
-  define finder,
+      _regex:
+        assign: options.regex
+        willSet: _regexWillBeSet
 
-    target:
-      value: ""
-      willSet: (newValue) ->
-        unless typeof newValue is "string"
-          error = TypeError "'target' must be a String." 
-          error.code = "BAD_TARGET_TYPE"
-          throw error
-        @offset = 0
-        return newValue
-
-    _groups:
-      # enumerable: no
-      value: []
-
-  finder._regex = regex
-
-  # finder.group = if finder.groups.length > 1 then 1 else 0
+    @enumerable = yes
+    @
+      group: options.group or (if finder.groups.length > 1 then 1 else 0)
+      
+      target:
+        value: options.target or ""
+        willSet: targetWillBeSet
 
   return finder
 
@@ -40,9 +39,7 @@ setKind Finder, Function
 
 define Finder, ->
   
-  @options = 
-    configurable: no
-    writable: no
+  @options = configurable: no, writable: no
 
   @ 
     find: (regex, target) ->
@@ -54,7 +51,6 @@ define Finder, ->
       return _defaultFinder.test target
 
   @ Finder.prototype, ->
-
     @ 
       next: ->
         return null if @offset < 0
@@ -111,11 +107,11 @@ define Finder, ->
 
       groups: get: -> @_groups
 
-    @options.writable = yes
-
+    @writable = yes
     @ 
       offset:
-        get: -> @_regex.lastIndex
+        get: -> 
+          if @_regex? then @_regex.lastIndex
         set: (newValue) ->
           unless typeof newValue is "number"
             error = TypeError "'this.offset' must be a Number."
@@ -127,15 +123,9 @@ define Finder, ->
             throw error
           @_regex.lastIndex = newValue
 
-      group:
-        value: 0
-        willSet: (newValue) ->
-          throw RangeError "You must pass a Number >= 0 when setting @group." unless newValue >= 0
-          throw RangeError "You must pass a Number < #{@groups.length} when setting @group." unless newValue < @groups.length
-          return newValue
-
       pattern:
-        get: -> @_regex.source
+        get: -> 
+          if @_regex? then @_regex.source
         set: (newValue) ->
           flags = _getRegexFlags newValue, {}
           flags.g = yes
@@ -143,19 +133,6 @@ define Finder, ->
           newValue = newValue.replace "\\", "\\\\"
           @_regex = RegExp newValue, flags
           @offset = 0
-
-      _regex:
-        enumerable: no
-        willSet: (newValue, oldValue) ->
-          newValue ?= ""
-          if typeof newValue is "string"
-            @pattern = newValue
-            return @_regex
-          else if newValue instanceof RegExp
-            newValue = if newValue.global then newValue else _setRegexFlags newValue, { global: true }
-            @_groups = _getGroups newValue
-            return newValue
-          throw TypeError "You must pass either a RegExp or String when setting @_regex."
 
     for key in ["ignoreCase", "multiline"]
       @ key,
@@ -170,12 +147,31 @@ define Finder, ->
 ### PRIVATE VARS ###
 
 
+targetWillBeSet = (target) ->
+  unless typeof target is "string"
+    error = TypeError "'target' must be a String." 
+    error.code = "BAD_TARGET_TYPE"
+    throw error
+  @offset = 0
+  target
+
 _parenRegex = /(\||\(|\))/g
 
 _regexFlags =
   global: "g"
   ignoreCase: "i"
   multiline: "m"
+
+_regexWillBeSet = (regex = "") ->
+  if typeof regex is "string"
+    @pattern = regex
+    @_regex
+  else if regex instanceof RegExp
+    regex = if regex.global then regex else _setRegexFlags regex, global: yes
+    @_groups = _getGroups regex
+    regex
+  else
+    throw TypeError "You must pass either a RegExp or String when setting @_regex."
 
 _getRegexFlags = (input, output) ->
   for key, value of _regexFlags

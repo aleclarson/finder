@@ -1,119 +1,132 @@
 (function() {
-  describe("Finder", function() {
-    describe("(constructor)", function() {
-      it("accepts a RegExp", function() {
-        var error, find;
-        try {
-          return find = Finder(/foo/);
-        } catch (_error) {
-          error = _error;
-          return expect(error).toBeFalsy();
-        }
-      });
-      it("accepts a String", function() {
-        var error, find;
-        try {
-          return find = Finder("foo");
-        } catch (_error) {
-          error = _error;
-          return expect(error).toBeFalsy();
-        }
-      });
-      it("fails if not a RegExp or String", function() {
-        var error, find;
-        try {
-          return find = Finder();
-        } catch (_error) {
-          error = _error;
-          return expect(error).toBeTruthy();
-        }
-      });
-      return describe("(aftermath)", function() {
-        var find;
-        find = null;
-        beforeAll(function() {
-          return find = Finder("foo");
-        });
-        it("sets the 'regex' property", function() {
-          return expect(find.regex.source).toBe("foo");
-        });
-        it("sets the 'group' property", function() {
-          return expect(find.group).toBe(1);
-        });
-        return it("sets the '__proto__' property", function() {
-          return expect(find.__proto__).toBe(Finder.prototype);
-        });
-      });
+  describe("Finder()", function() {
+    it("supports a RegExp as the first argument", function() {
+      var error, find;
+      try {
+        return find = Finder(/foo/);
+      } catch (_error) {
+        error = _error;
+        return expect(error).toBeFalsy();
+      }
     });
-    describe("@()", function() {
-      return describe("(aftermath)", function() {
-        var find, regex, result, string;
-        regex = find = string = result = null;
-        beforeAll(function() {
-          regex = /foo/;
-          find = Finder(regex);
-          string = "all you need is foo";
-          return result = find(string);
-        });
-        it("sets the 'string' property", function() {
-          return expect(find.string).toBe(string);
-        });
-        it("returns the first match", function() {
-          return expect(result).toBe(regex.source);
-        });
-        return it("resets the 'regex.lastIndex' property", function() {
-          expect(regex.lastIndex).not.toBe(0);
-          find(string);
-          return expect(regex.lastIndex).toBe(0);
-        });
-      });
+    it("supports a String as the first argument", function() {
+      var error, find;
+      try {
+        return find = Finder("foo");
+      } catch (_error) {
+        error = _error;
+        return expect(error).toBeFalsy();
+      }
     });
-    describe("@next()", function() {
+    return it("throws if the first argument isn't a String or RegExp", function() {
+      var error, find;
+      try {
+        return find = Finder();
+      } catch (_error) {
+        error = _error;
+        return expect(error).toBeTruthy();
+      }
+    });
+  });
+
+  describe("finder()", function() {
+    it("supports a String as the first argument", function() {});
+    it("throws if the first argument isn't a String", function() {});
+    it("sets the 'target' property", function() {});
+    it("sets the 'offset' property", function() {});
+    return it("returns the first match", function() {});
+  });
+
+  describe("finder.next()", function() {
+    return describe("(aftermath)", function() {
       var find;
       find = null;
       beforeAll(function() {
-        find = Finder("[a-z]+");
-        return find.string = "a b c";
+        return find = Finder("foo");
       });
-      it("increments the 'offset' property", function() {
-        find.next();
-        return expect(find.offset).toBe(1);
+      it("sets the 'regex' property", function() {
+        return expect(find.regex.source).toBe("foo");
       });
-      it("returns the next match", function() {
-        expect(find.next()).toBe("b");
-        return expect(find.next()).toBe("c");
+      it("sets the 'group' property", function() {
+        return expect(find.group).toBe(1);
       });
-      return it("returns null if no other matches exist", function() {
-        return expect(find.next()).toBe(null);
+      return it("sets the '__proto__' property", function() {
+        return expect(find.__proto__).toBe(Finder.prototype);
       });
     });
-    describe("@all()", function() {
-      var find, first, matches;
-      find = first = matches = null;
+  });
+
+  describe("@()", function() {
+    return describe("(aftermath)", function() {
+      var find, regex, result, string;
+      regex = find = string = result = null;
       beforeAll(function() {
-        find = Finder("[a-z]+");
-        first = find("11 aa b cc 00");
-        return matches = find.all();
+        regex = /foo/;
+        find = Finder(regex);
+        string = "all you need is foo";
+        return result = find(string);
       });
-      it("returns all matches found", function() {
-        return expect(matches).toEqual(["aa", "b", "cc"]);
+      it("sets the 'string' property", function() {
+        return expect(find.string).toBe(string);
       });
-      return it("doesnt fuck up the 'offset' property", function() {
-        return expect(find.offset).toBe(first.length);
+      it("returns the first match", function() {
+        return expect(result).toBe(regex.source);
+      });
+      return it("resets the 'regex.lastIndex' property", function() {
+        expect(regex.lastIndex).not.toBe(0);
+        find(string);
+        return expect(regex.lastIndex).toBe(0);
       });
     });
-    return describe("@test()", function() {
-      var find;
-      find = null;
-      beforeAll(function() {
-        return find = Finder("[a-z]+");
-      });
-      it("returns true when the 'regex' property finds a match in the given String", function() {
-        return expect(finder.test("a b c")).toBe(true);
-      });
-      return it("returns false when the 'regex' property fails to find a match in the given String", function() {
-        return expect(finder.test("1 2 3")).toBe(false);
-      });
+  });
+
+  describe("@next()", function() {
+    var find;
+    find = null;
+    beforeAll(function() {
+      find = Finder("[a-z]+");
+      return find.string = "a b c";
+    });
+    it("increments the 'offset' property", function() {
+      find.next();
+      return expect(find.offset).toBe(1);
+    });
+    it("returns the next match", function() {
+      expect(find.next()).toBe("b");
+      return expect(find.next()).toBe("c");
+    });
+    return it("returns null if no other matches exist", function() {
+      return expect(find.next()).toBe(null);
+    });
+  });
+
+  describe("@all()", function() {
+    var find, first, matches;
+    find = first = matches = null;
+    beforeAll(function() {
+      find = Finder("[a-z]+");
+      first = find("11 aa b cc 00");
+      return matches = find.all();
+    });
+    it("returns all matches found", function() {
+      return expect(matches).toEqual(["aa", "b", "cc"]);
+    });
+    return it("doesnt fuck up the 'offset' property", function() {
+      return expect(find.offset).toBe(first.length);
+    });
+  });
+
+  describe("@test()", function() {
+    var find;
+    find = null;
+    beforeAll(function() {
+      return find = Finder("[a-z]+");
+    });
+    it("returns true when the 'regex' property finds a match in the given String", function() {
+      return expect(finder.test("a b c")).toBe(true);
+    });
+    return it("returns false when the 'regex' property fails to find a match in the given String", function() {
+      return expect(finder.test("1 2 3")).toBe(false);
     });
   });
 
