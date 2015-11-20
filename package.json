@@ -1,0 +1,22 @@
+{
+  "name": "finder",
+  "description": "Easy regular expressions in Javascript",
+  "version": "1.0.0",
+  "license": "MIT",
+  "main": "js/src/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aleclarson/finder.git"
+  },
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-contrib-coffee": "aleclarson/grunt-contrib-coffee",
+    "grunt-contrib-watch": "^0.6.1",
+    "load-grunt-tasks": "^3.1.0"
+  },
+  "dependencies": {
+    "define": "aleclarson/define#1.0.0",
+    "lotus-require": "aleclarson/lotus-require#1.0.0",
+    "type-utils": "aleclarson/type-utils#1.0.0"
+  }
+}
