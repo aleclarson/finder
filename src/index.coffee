@@ -156,7 +156,7 @@ targetWillBeSet = (target) ->
   @offset = 0
   target
 
-_parenRegex = /(\||\(|\))/g
+_parenRegex = /(\(|\))/g
 
 _regexFlags =
   global: "g"
@@ -198,19 +198,17 @@ _getGroups = (regex) ->
   _parenRegex.lastIndex = 0
   loop
     match = _parenRegex.exec regex.source
-    break if !match?
+    break unless match
     continue if regex.source[_parenRegex.lastIndex - 2] is "\\"
-    switch match[0]
-      when "("
-        parens.push
-          index: _parenRegex.lastIndex
-          group: ++groupIndex
-      when ")"
-        paren = parens.pop()
-        continue if !paren?
-        groups[paren.group] = regex.source.slice paren.index, _parenRegex.lastIndex - 1
-      when "|"
-        parens.pop()
+    if match[0] is "("
+      parens.push
+        index: _parenRegex.lastIndex
+        group: ++groupIndex
+    else
+      unless parens.length
+        throw Error "Unexpected right parenthesis!"
+      paren = parens.pop()
+      groups[paren.group] = regex.source.slice paren.index, _parenRegex.lastIndex - 1
   return groups
 
 _tempTarget = (target, fn) ->
