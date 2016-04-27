@@ -1,4 +1,4 @@
-var Finder, _defaultFinder, _getGroups, _getRegexFlags, _parenRegex, _regexFlags, _regexWillBeSet, _setRegexFlags, _tempTarget, define, ref, setKind, setType, targetWillBeSet;
+var Finder, _defaultFinder, _getGroups, _getRegexFlags, _parenRegex, _regexFlags, _regexWillBeSet, _setRegexFlags, _tempTarget, define, ref, setKind, setType, sharedDescriptors, targetWillBeSet;
 
 require("lotus-require");
 
@@ -29,6 +29,7 @@ Finder = module.exports = function(options) {
       willSet: _regexWillBeSet
     }
   });
+  define(finder, sharedDescriptors);
   finder.group = options.group || (finder.groups.length > 1 ? 1 : 0);
   finder._regex = options.regex;
   return finder;
@@ -139,7 +140,10 @@ define(Finder.prototype, {
         return match != null;
       };
     })(this));
-  },
+  }
+});
+
+sharedDescriptors = {
   groups: {
     get: function() {
       return this._groups;
@@ -182,10 +186,10 @@ define(Finder.prototype, {
       return this.offset = 0;
     }
   }
-});
+};
 
 ["ignoreCase", "multiline"].forEach(function(key) {
-  return define(Finder.prototype, key, {
+  return sharedDescriptors[key] = {
     get: function() {
       return this._regex[key];
     },
@@ -198,7 +202,7 @@ define(Finder.prototype, {
       newFlags[key] = newValue;
       return this._regex = _setRegexFlags(this._regex, newFlags);
     }
-  });
+  };
 });
 
 

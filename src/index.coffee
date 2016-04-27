@@ -27,6 +27,8 @@ Finder = module.exports = (options) ->
     _regex:
       willSet: _regexWillBeSet
 
+  define finder, sharedDescriptors
+
   finder.group = options.group or (if finder.groups.length > 1 then 1 else 0)
   finder._regex = options.regex
 
@@ -108,7 +110,11 @@ define Finder.prototype,
       match = @_regex.exec target
       return match?
 
-  groups: get: -> @_groups
+sharedDescriptors =
+
+  groups:
+    get: ->
+      @_groups
 
   offset:
     get: ->
@@ -136,7 +142,7 @@ define Finder.prototype,
       @offset = 0
 
 ["ignoreCase", "multiline"].forEach (key) ->
-  define Finder.prototype, key,
+  sharedDescriptors[key] =
     get: -> @_regex[key]
     set: (newValue) ->
       return if @_regex[key] is newValue
