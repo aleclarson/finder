@@ -1,6 +1,4 @@
 
-require "lotus-require"
-
 { setType, setKind } = require "type-utils"
 define = require "define"
 

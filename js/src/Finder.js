@@ -1,7 +1,5 @@
 var Finder, _defaultFinder, _getGroups, _getRegexFlags, _parenRegex, _regexFlags, _regexWillBeSet, _setRegexFlags, _tempTarget, define, ref, setKind, setType, sharedDescriptors, targetWillBeSet;
 
-require("lotus-require");
-
 ref = require("type-utils"), setType = ref.setType, setKind = ref.setKind;
 
 define = require("define");
@@ -312,4 +310,4 @@ _tempTarget = function(target, fn) {
 
 _defaultFinder = Finder("");
 
-//# sourceMappingURL=../../map/src/index.map
+//# sourceMappingURL=../../map/src/Finder.map
