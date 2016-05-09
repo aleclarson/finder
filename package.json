@@ -1,11 +1,7 @@
 {
   "name": "finder",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "js/src/Finder",
-  "dependencies": {
-    "define": "aleclarson/define#1.0.0",
-    "type-utils": "aleclarson/type-utils#1.0.0"
-  },
   "lotus": {
     "plugins": [
       "lotus-coffee"
@@ -14,5 +10,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/aleclarson/finder.git"
+  },
+  "dependencies": {
+    "Type": "aleclarson/Type#1.0.0",
+    "type-utils": "aleclarson/type-utils#1.0.0"
   }
 }

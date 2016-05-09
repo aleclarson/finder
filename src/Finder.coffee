@@ -1,60 +1,118 @@
 
-{ setType, setKind } = require "type-utils"
-define = require "define"
+{ Null, Void, isType, assert, assertType } = require "type-utils"
 
-Finder = module.exports = (options) ->
+Type = require "Type"
 
-  if (options instanceof RegExp) or (typeof options is "string")
-    regex = options
-    options = { regex }
+PAREN_REGEX = /(\(|\))/g
+REGEX_FLAGS = { global: "g", ignoreCase: "i", multiline: "m" }
 
-  finder = (target) ->
-    finder.target = target
-    finder.next()
+type = Type "Finder", (target) ->
+  @target = target
+  @next()
 
-  setType finder, Finder
+type.optionTypes =
+  regex: [ RegExp, String, Null, Void ]
+  target: [ String, Null, Void ]
 
-  define finder,
+type.createArguments (args) ->
 
-    target:
-      value: options.target or ""
-      willSet: targetWillBeSet
+  if isType args[0], Finder.optionTypes.regex
+    args[0] = { regex: args[0] }
 
-    _groups: []
+  return args
 
-    _regex:
-      willSet: _regexWillBeSet
+type.exposeGetters [ "groups" ]
 
-  define finder, sharedDescriptors
+type.defineValues
 
-  finder.group = options.group or (if finder.groups.length > 1 then 1 else 0)
-  finder._regex = options.regex
+  _groups: -> []
 
-  return finder
+type.defineProperties
 
-setKind Finder, Function
+  target:
+    value: null
+    willSet: (newValue) ->
+      assertType newValue, Finder.optionTypes.target
+      @offset = 0
+      return newValue
 
-define Finder,
+  pattern:
+    get: -> @_regex.source
+    set: (newValue) ->
+      newValue = newValue.replace "\\", "\\\\"
+      flags = { global: yes } # This forces 'lastIndex' to be remembered.
+      if @_regex
+        flags.multiline = yes if @_regex.multiline
+        flags.ignoreCase = yes if @_regex.ignoreCase
+      @_regex = @_createRegex newValue, flags
 
-  find: (regex, target, group) ->
-    _defaultFinder._regex = regex
-    _defaultFinder.group = if group? then group else 0
-    return _defaultFinder target
+  group:
+    value: 0
+    willSet: (newValue) ->
+      assertType newValue, Number
+      return newValue
 
-  test: (regex, target) ->
-    _defaultFinder._regex = regex
-    return _defaultFinder.test target
+  offset:
+    get: -> @_regex.lastIndex
+    set: (newValue) ->
+      assertType newValue, Number
+      assert newValue >= 0, "'offset' must be >= 0!"
+      @_regex.lastIndex = newValue
 
-define Finder.prototype,
+  _regex:
+    value: null
+    willSet: (newValue) ->
+      assertType newValue, Finder.optionTypes.regex
+      unless newValue?
+        return RegExp ""
+      if isType newValue, String
+        @pattern = newValue
+        return @_regex
+      unless newValue.global
+        flags = { global: yes } # This forces 'lastIndex' to be remembered.
+        flags.multiline = yes if newValue.multiline
+        flags.ignoreCase = yes if newValue.ignoreCase
+        return @_createRegex newValue.source, flags
+      return newValue
+    didSet: (newValue, oldValue) ->
+      @offset = 0
+      if (oldValue is null) or (newValue.source isnt oldValue.source)
+        @_groups = @_parseRegexGroups newValue.source
+
+type.willBuild ->
+
+  flagProps = {}
+  [ "multiline", "ignoreCase" ].forEach (flag) ->
+    flagProps[flag] =
+      get: -> @_regex[flag]
+      set: (newValue) ->
+        assertType newValue, Boolean
+        return if @_regex[flag] is newValue
+        flags = @_parseRegexFlags @_regex
+        if newValue then flags[flag] = newValue
+        else delete flags[flag]
+        @_regex = @_createRegex @pattern, flags
+
+  type.defineProperties flagProps
+
+type.initInstance (options) ->
+
+  @_regex = options.regex
+
+  # If no 'group' is specified, use the first one if it exists.
+  # Otherwise, it defaults to returning the whole expression.
+  @group = options.group ?= if @_groups.length > 1 then 1 else 0
+
+  if options.target?
+    @target = options.target
+
+type.defineMethods
 
   next: ->
     if @offset < 0
       return null
     match = @_regex.exec @target
-    unless @group < @groups.length
-      error = RangeError "'this.group' must be less than #{@groups.length}, but equaled #{@group}."
-      error.code = "BAD_GROUP"
-      throw error
+    assert @group < @groups.length, { @group, @groups, reason: "Index of capturing group is out of bounds!" }
     result = null
     if match?
       if @group is null
@@ -69,159 +127,129 @@ define Finder.prototype,
     return null
 
   each: (target, iterator) ->
-    iterator = target if typeof iterator isnt "function" and typeof target is "function"
-    target = @target if typeof target isnt "string"
-    return _tempTarget.call this, target, =>
+    if arguments.length is 1
+      iterator = target
+      target = @target
+    assertType target, String
+    assertType iterator, Function
+    @_each target, iterator
+
+  map: (target, iterator) ->
+    if arguments.length is 1
+      iterator = target
+      target = @target
+    assertType target, String
+    assertType iterator, Function
+    results = []
+    @_each target, (match, index) ->
+      results.push iterator match, index
+    return results
+
+  all: (target) ->
+    target ?= @target
+    assertType target, String
+    matches = []
+    @_each target, (match) -> matches.push match
+    return matches
+
+  test: (target) ->
+    assertType target, String
+    return @_withTarget target, =>
+      match = @_regex.exec target
+      return match?
+
+  _each: (target, iterator) ->
+    return @_withTarget target, =>
       index = 0
       loop
         match = @next()
         break if match is null
         iterator match, index++
-      return null
+      return
 
-  map: (target, iterator) ->
-    map = []
-    @each target, (match, index) ->
-      map.push iterator match, index
-    return map
+  _parseRegexGroups: (pattern) ->
 
-  reduce: (target, initial, iterator) ->
-    unless iterator instanceof Function
-      iterator = initial
-      initial = target
-      target = @target
-    @each target, (match, index) ->
-      initial = iterator initial, match, index
-    return initial
+    assertType pattern, String
 
-  all: (target) ->
-    matches = []
-    @each target, (match) -> matches.push match
-    return matches
+    parens = []
+    groups = [pattern]
+    groupIndex = 0
 
-  test: (target) ->
-    unless typeof target is "string"
-      error = TypeError "'target' must be a String."
-      error.code = "BAD_TARGET_TYPE"
-      throw error
-    return _tempTarget.call this, target, =>
-      match = @_regex.exec target
-      return match?
+    PAREN_REGEX.lastIndex = 0
 
-sharedDescriptors =
+    loop
+      match = PAREN_REGEX.exec pattern
+      break unless match
 
-  groups:
-    get: ->
-      @_groups
+      continue if pattern[PAREN_REGEX.lastIndex - 2] is "\\"
 
-  offset:
-    get: ->
-      if @_regex? then @_regex.lastIndex
-    set: (newValue) ->
-      unless typeof newValue is "number"
-        error = TypeError "'this.offset' must be a Number."
-        error.code = "BAD_OFFSET_TYPE"
-        throw error
-      if newValue < 0
-        error = RangeError "@offset must be >= 0"
-        error.code = ""
-        throw error
-      @_regex.lastIndex = newValue
+      if match[0] is "("
+        parens.push
+          index: PAREN_REGEX.lastIndex
+          group: ++groupIndex
 
-  pattern:
-    get: ->
-      if @_regex? then @_regex.source
-    set: (newValue) ->
-      flags = _getRegexFlags newValue, {}
-      flags.g = yes
-      flags = Object.keys(flags).join ""
-      newValue = newValue.replace "\\", "\\\\"
-      @_regex = RegExp newValue, flags
-      @offset = 0
+      else
+        assert parens.length, "Unexpected right parenthesis!"
+        paren = parens.pop()
+        groups[paren.group] = pattern.slice paren.index, PAREN_REGEX.lastIndex - 1
 
-["ignoreCase", "multiline"].forEach (key) ->
-  sharedDescriptors[key] =
-    get: -> @_regex[key]
-    set: (newValue) ->
-      return if @_regex[key] is newValue
-      newFlags = {}
-      newFlags[key] = newValue
-      @_regex = _setRegexFlags @_regex, newFlags
+    return groups
 
+  _parseRegexFlags: (regex, flags = {}) ->
 
-### PRIVATE VARS ###
+    assertType regex, [ RegExp, Object ]
+    assertType flags, Object
 
+    for name, flag of REGEX_FLAGS
 
-targetWillBeSet = (target) ->
-  unless typeof target is "string"
-    error = TypeError "'target' must be a String."
-    error.code = "BAD_TARGET_TYPE"
-    throw error
-  @offset = 0
-  target
+      if regex[name] is yes
+        flags[flag] = yes
 
-_parenRegex = /(\(|\))/g
+      else if regex[name] is no
+        delete flags[flag]
 
-_regexFlags =
-  global: "g"
-  ignoreCase: "i"
-  multiline: "m"
+    return flags
 
-_regexWillBeSet = (regex = "") ->
-  if typeof regex is "string"
-    @pattern = regex
-    @_regex
-  else if regex instanceof RegExp
-    regex = if regex.global then regex else _setRegexFlags regex, global: yes
-    @_groups = _getGroups regex
-    regex
-  else
-    throw TypeError "You must pass either a RegExp or String when setting @_regex."
+  _createRegex: (pattern, flags) ->
 
-_getRegexFlags = (input, output) ->
-  for key, value of _regexFlags
-    inputValue = input[key]
-    if inputValue is true
-      output[value] = true
-    else if inputValue is false
-      delete output[value]
-  return output
+    assertType pattern, String
+    assertType flags, Object
 
-_setRegexFlags = (regex, newFlags) ->
-  flags = {}
-  _getRegexFlags regex, flags
-  _getRegexFlags newFlags, flags
-  newRegex = RegExp regex.source, Object.keys(flags).join ""
-  newRegex.lastIndex = regex.lastIndex
-  return newRegex
+    flags = @_parseRegexFlags flags
+    flags = Object.keys(flags).join ""
+    return RegExp pattern, flags
 
-_getGroups = (regex) ->
-  parens = []
-  groups = [regex.source]
-  groupIndex = 0
-  _parenRegex.lastIndex = 0
-  loop
-    match = _parenRegex.exec regex.source
-    break unless match
-    continue if regex.source[_parenRegex.lastIndex - 2] is "\\"
-    if match[0] is "("
-      parens.push
-        index: _parenRegex.lastIndex
-        group: ++groupIndex
-    else
-      unless parens.length
-        throw Error "Unexpected right parenthesis!"
-      paren = parens.pop()
-      groups[paren.group] = regex.source.slice paren.index, _parenRegex.lastIndex - 1
-  return groups
+  _withTarget: (target, callback) ->
 
-_tempTarget = (target, fn) ->
-  _offset = @offset
-  _target = @target
-  @target = target
-  result = fn()
-  @target = _target
-  @_regex.lastIndex = _offset # Avoid range errors in case _offset is under zero.
-  return result
+    lastTarget = @target
+    lastOffset = @offset
 
-_defaultFinder = Finder ""
+    @target = target
+    result = callback()
+
+    @target = lastTarget
+
+    if lastOffset isnt null
+      # Avoid 'this.offset' since 'lastOffset' might equal -1.
+      @_regex.lastIndex = lastOffset
+
+    return result
+
+type.defineStatics
+
+  find: (regex, target, group) ->
+    finder = Finder._finder
+    finder._regex = regex
+    finder.group = if group? then group else 0
+    return finder target
+
+  test: (regex, target, group) ->
+    finder = Finder._finder
+    finder._regex = regex
+    finder.group = if group? then group else 0
+    return finder.test target
+
+  _finder: lazy: ->
+    Finder null
+
+module.exports = Finder = type.build()

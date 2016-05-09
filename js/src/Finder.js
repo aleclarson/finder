@@ -1,64 +1,173 @@
-var Finder, _defaultFinder, _getGroups, _getRegexFlags, _parenRegex, _regexFlags, _regexWillBeSet, _setRegexFlags, _tempTarget, define, ref, setKind, setType, sharedDescriptors, targetWillBeSet;
+var Finder, Null, PAREN_REGEX, REGEX_FLAGS, Type, Void, assert, assertType, isType, ref, type;
 
-ref = require("type-utils"), setType = ref.setType, setKind = ref.setKind;
+ref = require("type-utils"), Null = ref.Null, Void = ref.Void, isType = ref.isType, assert = ref.assert, assertType = ref.assertType;
 
-define = require("define");
+Type = require("Type");
 
-Finder = module.exports = function(options) {
-  var finder, regex;
-  if ((options instanceof RegExp) || (typeof options === "string")) {
-    regex = options;
-    options = {
-      regex: regex
-    };
-  }
-  finder = function(target) {
-    finder.target = target;
-    return finder.next();
-  };
-  setType(finder, Finder);
-  define(finder, {
-    target: {
-      value: options.target || "",
-      willSet: targetWillBeSet
-    },
-    _groups: [],
-    _regex: {
-      willSet: _regexWillBeSet
-    }
-  });
-  define(finder, sharedDescriptors);
-  finder.group = options.group || (finder.groups.length > 1 ? 1 : 0);
-  finder._regex = options.regex;
-  return finder;
+PAREN_REGEX = /(\(|\))/g;
+
+REGEX_FLAGS = {
+  global: "g",
+  ignoreCase: "i",
+  multiline: "m"
 };
 
-setKind(Finder, Function);
+type = Type("Finder", function(target) {
+  this.target = target;
+  return this.next();
+});
 
-define(Finder, {
-  find: function(regex, target, group) {
-    _defaultFinder._regex = regex;
-    _defaultFinder.group = group != null ? group : 0;
-    return _defaultFinder(target);
-  },
-  test: function(regex, target) {
-    _defaultFinder._regex = regex;
-    return _defaultFinder.test(target);
+type.optionTypes = {
+  regex: [RegExp, String, Null, Void],
+  target: [String, Null, Void]
+};
+
+type.createArguments(function(args) {
+  if (isType(args[0], Finder.optionTypes.regex)) {
+    args[0] = {
+      regex: args[0]
+    };
+  }
+  return args;
+});
+
+type.exposeGetters(["groups"]);
+
+type.defineValues({
+  _groups: function() {
+    return [];
   }
 });
 
-define(Finder.prototype, {
+type.defineProperties({
+  target: {
+    value: null,
+    willSet: function(newValue) {
+      assertType(newValue, Finder.optionTypes.target);
+      this.offset = 0;
+      return newValue;
+    }
+  },
+  pattern: {
+    get: function() {
+      return this._regex.source;
+    },
+    set: function(newValue) {
+      var flags;
+      newValue = newValue.replace("\\", "\\\\");
+      flags = {
+        global: true
+      };
+      if (this._regex) {
+        if (this._regex.multiline) {
+          flags.multiline = true;
+        }
+        if (this._regex.ignoreCase) {
+          flags.ignoreCase = true;
+        }
+      }
+      return this._regex = this._createRegex(newValue, flags);
+    }
+  },
+  group: {
+    value: 0,
+    willSet: function(newValue) {
+      assertType(newValue, Number);
+      return newValue;
+    }
+  },
+  offset: {
+    get: function() {
+      return this._regex.lastIndex;
+    },
+    set: function(newValue) {
+      assertType(newValue, Number);
+      assert(newValue >= 0, "'offset' must be >= 0!");
+      return this._regex.lastIndex = newValue;
+    }
+  },
+  _regex: {
+    value: null,
+    willSet: function(newValue) {
+      var flags;
+      assertType(newValue, Finder.optionTypes.regex);
+      if (newValue == null) {
+        return RegExp("");
+      }
+      if (isType(newValue, String)) {
+        this.pattern = newValue;
+        return this._regex;
+      }
+      if (!newValue.global) {
+        flags = {
+          global: true
+        };
+        if (newValue.multiline) {
+          flags.multiline = true;
+        }
+        if (newValue.ignoreCase) {
+          flags.ignoreCase = true;
+        }
+        return this._createRegex(newValue.source, flags);
+      }
+      return newValue;
+    },
+    didSet: function(newValue, oldValue) {
+      this.offset = 0;
+      if ((oldValue === null) || (newValue.source !== oldValue.source)) {
+        return this._groups = this._parseRegexGroups(newValue.source);
+      }
+    }
+  }
+});
+
+type.willBuild(function() {
+  var flagProps;
+  flagProps = {};
+  ["multiline", "ignoreCase"].forEach(function(flag) {
+    return flagProps[flag] = {
+      get: function() {
+        return this._regex[flag];
+      },
+      set: function(newValue) {
+        var flags;
+        assertType(newValue, Boolean);
+        if (this._regex[flag] === newValue) {
+          return;
+        }
+        flags = this._parseRegexFlags(this._regex);
+        if (newValue) {
+          flags[flag] = newValue;
+        } else {
+          delete flags[flag];
+        }
+        return this._regex = this._createRegex(this.pattern, flags);
+      }
+    };
+  });
+  return type.defineProperties(flagProps);
+});
+
+type.initInstance(function(options) {
+  this._regex = options.regex;
+  this.group = options.group != null ? options.group : options.group = this._groups.length > 1 ? 1 : 0;
+  if (options.target != null) {
+    return this.target = options.target;
+  }
+});
+
+type.defineMethods({
   next: function() {
-    var error, match, result;
+    var match, result;
     if (this.offset < 0) {
       return null;
     }
     match = this._regex.exec(this.target);
-    if (!(this.group < this.groups.length)) {
-      error = RangeError("'this.group' must be less than " + this.groups.length + ", but equaled " + this.group + ".");
-      error.code = "BAD_GROUP";
-      throw error;
-    }
+    assert(this.group < this.groups.length, {
+      group: this.group,
+      groups: this.groups,
+      reason: "Index of capturing group is out of bounds!"
+    });
     result = null;
     if (match != null) {
       if (this.group === null) {
@@ -76,13 +185,52 @@ define(Finder.prototype, {
     return null;
   },
   each: function(target, iterator) {
-    if (typeof iterator !== "function" && typeof target === "function") {
+    if (arguments.length === 1) {
       iterator = target;
-    }
-    if (typeof target !== "string") {
       target = this.target;
     }
-    return _tempTarget.call(this, target, (function(_this) {
+    assertType(target, String);
+    assertType(iterator, Function);
+    return this._each(target, iterator);
+  },
+  map: function(target, iterator) {
+    var results;
+    if (arguments.length === 1) {
+      iterator = target;
+      target = this.target;
+    }
+    assertType(target, String);
+    assertType(iterator, Function);
+    results = [];
+    this._each(target, function(match, index) {
+      return results.push(iterator(match, index));
+    });
+    return results;
+  },
+  all: function(target) {
+    var matches;
+    if (target == null) {
+      target = this.target;
+    }
+    assertType(target, String);
+    matches = [];
+    this._each(target, function(match) {
+      return matches.push(match);
+    });
+    return matches;
+  },
+  test: function(target) {
+    assertType(target, String);
+    return this._withTarget(target, (function(_this) {
+      return function() {
+        var match;
+        match = _this._regex.exec(target);
+        return match != null;
+      };
+    })(this));
+  },
+  _each: function(target, iterator) {
+    return this._withTarget(target, (function(_this) {
       return function() {
         var index, match;
         index = 0;
@@ -93,221 +241,97 @@ define(Finder.prototype, {
           }
           iterator(match, index++);
         }
-        return null;
       };
     })(this));
   },
-  map: function(target, iterator) {
-    var map;
-    map = [];
-    this.each(target, function(match, index) {
-      return map.push(iterator(match, index));
-    });
-    return map;
-  },
-  reduce: function(target, initial, iterator) {
-    if (!(iterator instanceof Function)) {
-      iterator = initial;
-      initial = target;
-      target = this.target;
+  _parseRegexGroups: function(pattern) {
+    var groupIndex, groups, match, paren, parens;
+    assertType(pattern, String);
+    parens = [];
+    groups = [pattern];
+    groupIndex = 0;
+    PAREN_REGEX.lastIndex = 0;
+    while (true) {
+      match = PAREN_REGEX.exec(pattern);
+      if (!match) {
+        break;
+      }
+      if (pattern[PAREN_REGEX.lastIndex - 2] === "\\") {
+        continue;
+      }
+      if (match[0] === "(") {
+        parens.push({
+          index: PAREN_REGEX.lastIndex,
+          group: ++groupIndex
+        });
+      } else {
+        assert(parens.length, "Unexpected right parenthesis!");
+        paren = parens.pop();
+        groups[paren.group] = pattern.slice(paren.index, PAREN_REGEX.lastIndex - 1);
+      }
     }
-    this.each(target, function(match, index) {
-      return initial = iterator(initial, match, index);
-    });
-    return initial;
+    return groups;
   },
-  all: function(target) {
-    var matches;
-    matches = [];
-    this.each(target, function(match) {
-      return matches.push(match);
-    });
-    return matches;
-  },
-  test: function(target) {
-    var error;
-    if (typeof target !== "string") {
-      error = TypeError("'target' must be a String.");
-      error.code = "BAD_TARGET_TYPE";
-      throw error;
+  _parseRegexFlags: function(regex, flags) {
+    var flag, name;
+    if (flags == null) {
+      flags = {};
     }
-    return _tempTarget.call(this, target, (function(_this) {
-      return function() {
-        var match;
-        match = _this._regex.exec(target);
-        return match != null;
-      };
-    })(this));
+    assertType(regex, [RegExp, Object]);
+    assertType(flags, Object);
+    for (name in REGEX_FLAGS) {
+      flag = REGEX_FLAGS[name];
+      if (regex[name] === true) {
+        flags[flag] = true;
+      } else if (regex[name] === false) {
+        delete flags[flag];
+      }
+    }
+    return flags;
+  },
+  _createRegex: function(pattern, flags) {
+    assertType(pattern, String);
+    assertType(flags, Object);
+    flags = this._parseRegexFlags(flags);
+    flags = Object.keys(flags).join("");
+    return RegExp(pattern, flags);
+  },
+  _withTarget: function(target, callback) {
+    var lastOffset, lastTarget, result;
+    lastTarget = this.target;
+    lastOffset = this.offset;
+    this.target = target;
+    result = callback();
+    this.target = lastTarget;
+    if (lastOffset !== null) {
+      this._regex.lastIndex = lastOffset;
+    }
+    return result;
   }
 });
 
-sharedDescriptors = {
-  groups: {
-    get: function() {
-      return this._groups;
-    }
+type.defineStatics({
+  find: function(regex, target, group) {
+    var finder;
+    finder = Finder._finder;
+    finder._regex = regex;
+    finder.group = group != null ? group : 0;
+    return finder(target);
   },
-  offset: {
-    get: function() {
-      if (this._regex != null) {
-        return this._regex.lastIndex;
-      }
-    },
-    set: function(newValue) {
-      var error;
-      if (typeof newValue !== "number") {
-        error = TypeError("'this.offset' must be a Number.");
-        error.code = "BAD_OFFSET_TYPE";
-        throw error;
-      }
-      if (newValue < 0) {
-        error = RangeError("@offset must be >= 0");
-        error.code = "";
-        throw error;
-      }
-      return this._regex.lastIndex = newValue;
-    }
+  test: function(regex, target, group) {
+    var finder;
+    finder = Finder._finder;
+    finder._regex = regex;
+    finder.group = group != null ? group : 0;
+    return finder.test(target);
   },
-  pattern: {
-    get: function() {
-      if (this._regex != null) {
-        return this._regex.source;
-      }
-    },
-    set: function(newValue) {
-      var flags;
-      flags = _getRegexFlags(newValue, {});
-      flags.g = true;
-      flags = Object.keys(flags).join("");
-      newValue = newValue.replace("\\", "\\\\");
-      this._regex = RegExp(newValue, flags);
-      return this.offset = 0;
+  _finder: {
+    lazy: function() {
+      return Finder(null);
     }
   }
-};
-
-["ignoreCase", "multiline"].forEach(function(key) {
-  return sharedDescriptors[key] = {
-    get: function() {
-      return this._regex[key];
-    },
-    set: function(newValue) {
-      var newFlags;
-      if (this._regex[key] === newValue) {
-        return;
-      }
-      newFlags = {};
-      newFlags[key] = newValue;
-      return this._regex = _setRegexFlags(this._regex, newFlags);
-    }
-  };
 });
 
-
-/* PRIVATE VARS */
-
-targetWillBeSet = function(target) {
-  var error;
-  if (typeof target !== "string") {
-    error = TypeError("'target' must be a String.");
-    error.code = "BAD_TARGET_TYPE";
-    throw error;
-  }
-  this.offset = 0;
-  return target;
-};
-
-_parenRegex = /(\(|\))/g;
-
-_regexFlags = {
-  global: "g",
-  ignoreCase: "i",
-  multiline: "m"
-};
-
-_regexWillBeSet = function(regex) {
-  if (regex == null) {
-    regex = "";
-  }
-  if (typeof regex === "string") {
-    this.pattern = regex;
-    return this._regex;
-  } else if (regex instanceof RegExp) {
-    regex = regex.global ? regex : _setRegexFlags(regex, {
-      global: true
-    });
-    this._groups = _getGroups(regex);
-    return regex;
-  } else {
-    throw TypeError("You must pass either a RegExp or String when setting @_regex.");
-  }
-};
-
-_getRegexFlags = function(input, output) {
-  var inputValue, key, value;
-  for (key in _regexFlags) {
-    value = _regexFlags[key];
-    inputValue = input[key];
-    if (inputValue === true) {
-      output[value] = true;
-    } else if (inputValue === false) {
-      delete output[value];
-    }
-  }
-  return output;
-};
-
-_setRegexFlags = function(regex, newFlags) {
-  var flags, newRegex;
-  flags = {};
-  _getRegexFlags(regex, flags);
-  _getRegexFlags(newFlags, flags);
-  newRegex = RegExp(regex.source, Object.keys(flags).join(""));
-  newRegex.lastIndex = regex.lastIndex;
-  return newRegex;
-};
-
-_getGroups = function(regex) {
-  var groupIndex, groups, match, paren, parens;
-  parens = [];
-  groups = [regex.source];
-  groupIndex = 0;
-  _parenRegex.lastIndex = 0;
-  while (true) {
-    match = _parenRegex.exec(regex.source);
-    if (!match) {
-      break;
-    }
-    if (regex.source[_parenRegex.lastIndex - 2] === "\\") {
-      continue;
-    }
-    if (match[0] === "(") {
-      parens.push({
-        index: _parenRegex.lastIndex,
-        group: ++groupIndex
-      });
-    } else {
-      if (!parens.length) {
-        throw Error("Unexpected right parenthesis!");
-      }
-      paren = parens.pop();
-      groups[paren.group] = regex.source.slice(paren.index, _parenRegex.lastIndex - 1);
-    }
-  }
-  return groups;
-};
-
-_tempTarget = function(target, fn) {
-  var _offset, _target, result;
-  _offset = this.offset;
-  _target = this.target;
-  this.target = target;
-  result = fn();
-  this.target = _target;
-  this._regex.lastIndex = _offset;
-  return result;
-};
-
-_defaultFinder = Finder("");
+module.exports = Finder = type.build();
 
 //# sourceMappingURL=../../map/src/Finder.map
