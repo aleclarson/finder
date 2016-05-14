@@ -12,7 +12,6 @@
     "url": "https://github.com/aleclarson/finder.git"
   },
   "dependencies": {
-    "Type": "aleclarson/Type#1.0.0",
-    "type-utils": "aleclarson/type-utils#1.0.0"
+    "Type": "aleclarson/Type#1.0.0"
   }
 }

@@ -1,6 +1,9 @@
 
-{ Null, Void, isType, assert, assertType } = require "type-utils"
-
+assertType = require "assertType"
+isType = require "isType"
+assert = require "assert"
+Void = require "Void"
+Null = require "Null"
 Type = require "Type"
 
 PAREN_REGEX = /(\(|\))/g

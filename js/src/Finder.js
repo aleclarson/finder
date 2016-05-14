@@ -1,6 +1,14 @@
-var Finder, Null, PAREN_REGEX, REGEX_FLAGS, Type, Void, assert, assertType, isType, ref, type;
+var Finder, Null, PAREN_REGEX, REGEX_FLAGS, Type, Void, assert, assertType, isType, type;
 
-ref = require("type-utils"), Null = ref.Null, Void = ref.Void, isType = ref.isType, assert = ref.assert, assertType = ref.assertType;
+assertType = require("assertType");
+
+isType = require("isType");
+
+assert = require("assert");
+
+Void = require("Void");
+
+Null = require("Null");
 
 Type = require("Type");
 
