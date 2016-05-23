@@ -1,12 +1,28 @@
 
-# finder 1.0.0 ![stable](https://img.shields.io/badge/stability-stable-4EBA0F.svg?style=flat)
+# finder 2.0.0 ![stable](https://img.shields.io/badge/stability-stable-4EBA0F.svg?style=flat)
+
+The `Finder` class provides a useful abstraction over the `RegExp` class.
 
 ```coffee
-find = Finder /[0-9]/
+Finder = require "finder"
 
-find "a 1 b 2 c 3"      # "1"
+find = Finder "[a-z]+"
 
-find.next()             # "2"
+find "123 abc 345 def" # => "abc"
+find.offset            # => 7
+
+find.next()            # => "def"
+find.offset            # => 15
+
+find.next()            # => null
+find.offset            # => -1
+
+find.pattern = "^([a-z]+) [a-z]+$"  # A naive attempt at finding a person's name.
+find.group = 1                      # This will cause only the first name to be returned.
+find.ignoreCase = yes               # Allow [a-z] to match against [A-Z].
+
+find "Alec Larson"     # => "Alec"
+find "Alec"            # => null
 ```
 
-**TODO:** Write tests and documentation?!
+And much more!
