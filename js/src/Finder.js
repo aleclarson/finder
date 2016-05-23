@@ -1,4 +1,4 @@
-var Finder, Null, PAREN_REGEX, REGEX_FLAGS, Type, Void, assert, assertType, isType, type;
+var Finder, Null, Type, Void, assert, assertType, isType, type;
 
 assertType = require("assertType");
 
@@ -11,14 +11,6 @@ Void = require("Void");
 Null = require("Null");
 
 Type = require("Type");
-
-PAREN_REGEX = /(\(|\))/g;
-
-REGEX_FLAGS = {
-  global: "g",
-  ignoreCase: "i",
-  multiline: "m"
-};
 
 type = Type("Finder", function(target) {
   this.target = target;
@@ -47,6 +39,25 @@ type.defineValues({
   }
 });
 
+type.definePrototype({
+  _parenRegex: {
+    lazy: function() {
+      var chars;
+      chars = "(|)".split("").map(function(char) {
+        return "\\" + char;
+      });
+      return RegExp("(" + chars.join("|") + ")", "g");
+    }
+  },
+  _regexFlags: {
+    value: {
+      global: "g",
+      ignoreCase: "i",
+      multiline: "m"
+    }
+  }
+});
+
 type.defineProperties({
   target: {
     value: null,
@@ -62,7 +73,6 @@ type.defineProperties({
     },
     set: function(newValue) {
       var flags;
-      newValue = newValue.replace("\\", "\\\\");
       flags = {
         global: true
       };
@@ -253,42 +263,47 @@ type.defineMethods({
     })(this));
   },
   _parseRegexGroups: function(pattern) {
-    var groupIndex, groups, match, paren, parens;
+    var char, groupIndex, groups, match, paren, parens, regex;
     assertType(pattern, String);
     parens = [];
     groups = [pattern];
     groupIndex = 0;
-    PAREN_REGEX.lastIndex = 0;
+    regex = this._parenRegex;
+    regex.lastIndex = 0;
     while (true) {
-      match = PAREN_REGEX.exec(pattern);
+      match = regex.exec(pattern);
       if (!match) {
         break;
       }
-      if (pattern[PAREN_REGEX.lastIndex - 2] === "\\") {
+      if (pattern[regex.lastIndex - 2] === "\\") {
         continue;
       }
-      if (match[0] === "(") {
+      char = match[0];
+      if (char === "(") {
         parens.push({
-          index: PAREN_REGEX.lastIndex,
+          index: regex.lastIndex,
           group: ++groupIndex
         });
-      } else {
+      } else if (char === ")") {
         assert(parens.length, "Unexpected right parenthesis!");
         paren = parens.pop();
-        groups[paren.group] = pattern.slice(paren.index, PAREN_REGEX.lastIndex - 1);
+        groups[paren.group] = pattern.slice(paren.index, regex.lastIndex - 1);
+      } else if (char === "|") {
+        parens.pop();
       }
     }
     return groups;
   },
   _parseRegexFlags: function(regex, flags) {
-    var flag, name;
+    var flag, name, ref;
     if (flags == null) {
       flags = {};
     }
     assertType(regex, [RegExp, Object]);
     assertType(flags, Object);
-    for (name in REGEX_FLAGS) {
-      flag = REGEX_FLAGS[name];
+    ref = this._regexFlags;
+    for (name in ref) {
+      flag = ref[name];
       if (regex[name] === true) {
         flags[flag] = true;
       } else if (regex[name] === false) {

@@ -6,9 +6,6 @@ Void = require "Void"
 Null = require "Null"
 Type = require "Type"
 
-PAREN_REGEX = /(\(|\))/g
-REGEX_FLAGS = { global: "g", ignoreCase: "i", multiline: "m" }
-
 type = Type "Finder", (target) ->
   @target = target
   @next()
@@ -30,6 +27,18 @@ type.defineValues
 
   _groups: -> []
 
+type.definePrototype
+
+  _parenRegex: lazy: ->
+    chars = "(|)".split("").map (char) -> "\\" + char
+    return RegExp "(" + chars.join("|") + ")", "g"
+
+  _regexFlags: value: {
+    global: "g"
+    ignoreCase: "i"
+    multiline: "m"
+  }
+
 type.defineProperties
 
   target:
@@ -42,7 +51,6 @@ type.defineProperties
   pattern:
     get: -> @_regex.source
     set: (newValue) ->
-      newValue = newValue.replace "\\", "\\\\"
       flags = { global: yes } # This forces 'lastIndex' to be remembered.
       if @_regex
         flags.multiline = yes if @_regex.multiline
@@ -178,23 +186,29 @@ type.defineMethods
     groups = [pattern]
     groupIndex = 0
 
-    PAREN_REGEX.lastIndex = 0
+    regex = @_parenRegex
+    regex.lastIndex = 0
 
     loop
-      match = PAREN_REGEX.exec pattern
+      match = regex.exec pattern
       break unless match
 
-      continue if pattern[PAREN_REGEX.lastIndex - 2] is "\\"
+      continue if pattern[regex.lastIndex - 2] is "\\"
 
-      if match[0] is "("
+      char = match[0]
+
+      if char is "("
         parens.push
-          index: PAREN_REGEX.lastIndex
+          index: regex.lastIndex
           group: ++groupIndex
 
-      else
+      else if char is ")"
         assert parens.length, "Unexpected right parenthesis!"
         paren = parens.pop()
-        groups[paren.group] = pattern.slice paren.index, PAREN_REGEX.lastIndex - 1
+        groups[paren.group] = pattern.slice paren.index, regex.lastIndex - 1
+
+      else if char is "|"
+        parens.pop()
 
     return groups
 
@@ -203,7 +217,7 @@ type.defineMethods
     assertType regex, [ RegExp, Object ]
     assertType flags, Object
 
-    for name, flag of REGEX_FLAGS
+    for name, flag of @_regexFlags
 
       if regex[name] is yes
         flags[flag] = yes
