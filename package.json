@@ -1,7 +1,7 @@
 {
   "name": "finder",
   "version": "2.0.0",
-  "main": "js/src/Finder",
+  "main": "js/Finder",
   "lotus": {
     "plugins": [
       "lotus-coffee"
