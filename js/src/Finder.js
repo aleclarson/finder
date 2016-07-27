@@ -1,12 +1,10 @@
-var Finder, Null, Type, Void, assert, assertType, isType, type;
+var Finder, Null, Type, assert, assertType, isType, type;
 
 assertType = require("assertType");
 
 isType = require("isType");
 
 assert = require("assert");
-
-Void = require("Void");
 
 Null = require("Null");
 
@@ -17,10 +15,10 @@ type = Type("Finder", function(target) {
   return this.next();
 });
 
-type.optionTypes = {
-  regex: [RegExp, String, Null, Void],
-  target: [String, Null, Void]
-};
+type.defineOptions({
+  regex: [RegExp, String, Null],
+  target: [String, Null]
+});
 
 type.createArguments(function(args) {
   if (isType(args[0], Finder.optionTypes.regex)) {
