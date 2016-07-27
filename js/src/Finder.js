@@ -31,7 +31,11 @@ type.createArguments(function(args) {
   return args;
 });
 
-type.exposeGetters(["groups"]);
+type.defineGetters({
+  groups: function() {
+    return this._groups;
+  }
+});
 
 type.defineValues({
   _groups: function() {
@@ -357,4 +361,4 @@ type.defineStatics({
 
 module.exports = Finder = type.build();
 
-//# sourceMappingURL=../../map/src/Finder.map
+//# sourceMappingURL=map/Finder.map

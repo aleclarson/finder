@@ -21,7 +21,9 @@ type.createArguments (args) ->
 
   return args
 
-type.exposeGetters [ "groups" ]
+type.defineGetters
+
+  groups: -> @_groups
 
 type.defineValues
 
