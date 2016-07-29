@@ -2,7 +2,6 @@
 assertType = require "assertType"
 isType = require "isType"
 assert = require "assert"
-Void = require "Void"
 Null = require "Null"
 Type = require "Type"
 
@@ -10,9 +9,9 @@ type = Type "Finder", (target) ->
   @target = target
   @next()
 
-type.optionTypes =
-  regex: [ RegExp, String, Null, Void ]
-  target: [ String, Null, Void ]
+type.defineOptions
+  regex: [ RegExp, String, Null ]
+  target: [ String, Null ]
 
 type.createArguments (args) ->
 
@@ -21,7 +20,9 @@ type.createArguments (args) ->
 
   return args
 
-type.exposeGetters [ "groups" ]
+type.defineGetters
+
+  groups: -> @_groups
 
 type.defineValues
 
