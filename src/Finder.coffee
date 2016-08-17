@@ -1,7 +1,6 @@
 
 assertType = require "assertType"
 isType = require "isType"
-assert = require "assert"
 Null = require "Null"
 Type = require "Type"
 
@@ -9,16 +8,14 @@ type = Type "Finder", (target) ->
   @target = target
   @next()
 
-type.defineOptions
-  regex: [ RegExp, String, Null ]
-  target: [ String, Null ]
-
-type.createArguments (args) ->
-
+type.initArgs (args) ->
   if isType args[0], Finder.optionTypes.regex
-    args[0] = { regex: args[0] }
+    args[0] = regex: args[0]
+  return
 
-  return args
+type.defineOptions
+  regex: RegExp.or(String, Null)
+  target: String.or(Null)
 
 type.defineGetters
 
@@ -68,7 +65,10 @@ type.defineProperties
     get: -> @_regex.lastIndex
     set: (newValue) ->
       assertType newValue, Number
-      assert newValue >= 0, "'offset' must be >= 0!"
+
+      if newValue < 0
+        throw Error "'offset' must be >= 0!"
+
       @_regex.lastIndex = newValue
 
   _regex:
@@ -121,11 +121,17 @@ type.initInstance (options) ->
 type.defineMethods
 
   next: ->
+
     if @offset < 0
       return null
+
     match = @_regex.exec @target
-    assert @group < @groups.length, { @group, @groups, reason: "Index of capturing group is out of bounds!" }
+
+    if @group >= @groups.length
+      throw Error "Index of capturing group is out of bounds!"
+
     result = null
+
     if match?
       if @group is null
         result = match.slice 1
@@ -133,25 +139,33 @@ type.defineMethods
         result.string = match[0]
       else
         result = match[@group]
+
     if result?
       return result
+
     @_regex.lastIndex = -1
     return null
 
   each: (target, iterator) ->
+
     if arguments.length is 1
       iterator = target
       target = @target
+
     assertType target, String
     assertType iterator, Function
+
     @_each target, iterator
 
   map: (target, iterator) ->
+
     if arguments.length is 1
       iterator = target
       target = @target
+
     assertType target, String
     assertType iterator, Function
+
     results = []
     @_each target, (match, index) ->
       results.push iterator match, index
@@ -204,7 +218,10 @@ type.defineMethods
           group: ++groupIndex
 
       else if char is ")"
-        assert parens.length, "Unexpected right parenthesis!"
+
+        if not parens.length
+          throw Error "Unexpected right parenthesis!"
+
         paren = parens.pop()
         groups[paren.group] = pattern.slice paren.index, regex.lastIndex - 1
 
@@ -215,7 +232,7 @@ type.defineMethods
 
   _parseRegexFlags: (regex, flags = {}) ->
 
-    assertType regex, [ RegExp, Object ]
+    assertType regex, RegExp.or Object
     assertType flags, Object
 
     for name, flag of @_regexFlags

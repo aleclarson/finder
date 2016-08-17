@@ -1,10 +1,8 @@
-var Finder, Null, Type, assert, assertType, isType, type;
+var Finder, Null, Type, assertType, isType, type;
 
 assertType = require("assertType");
 
 isType = require("isType");
-
-assert = require("assert");
 
 Null = require("Null");
 
@@ -15,18 +13,17 @@ type = Type("Finder", function(target) {
   return this.next();
 });
 
-type.defineOptions({
-  regex: [RegExp, String, Null],
-  target: [String, Null]
-});
-
-type.createArguments(function(args) {
+type.initArgs(function(args) {
   if (isType(args[0], Finder.optionTypes.regex)) {
     args[0] = {
       regex: args[0]
     };
   }
-  return args;
+});
+
+type.defineOptions({
+  regex: RegExp.or(String, Null),
+  target: String.or(Null)
 });
 
 type.defineGetters({
@@ -102,7 +99,9 @@ type.defineProperties({
     },
     set: function(newValue) {
       assertType(newValue, Number);
-      assert(newValue >= 0, "'offset' must be >= 0!");
+      if (newValue < 0) {
+        throw Error("'offset' must be >= 0!");
+      }
       return this._regex.lastIndex = newValue;
     }
   },
@@ -183,11 +182,9 @@ type.defineMethods({
       return null;
     }
     match = this._regex.exec(this.target);
-    assert(this.group < this.groups.length, {
-      group: this.group,
-      groups: this.groups,
-      reason: "Index of capturing group is out of bounds!"
-    });
+    if (this.group >= this.groups.length) {
+      throw Error("Index of capturing group is out of bounds!");
+    }
     result = null;
     if (match != null) {
       if (this.group === null) {
@@ -287,7 +284,9 @@ type.defineMethods({
           group: ++groupIndex
         });
       } else if (char === ")") {
-        assert(parens.length, "Unexpected right parenthesis!");
+        if (!parens.length) {
+          throw Error("Unexpected right parenthesis!");
+        }
         paren = parens.pop();
         groups[paren.group] = pattern.slice(paren.index, regex.lastIndex - 1);
       } else if (char === "|") {
@@ -301,7 +300,7 @@ type.defineMethods({
     if (flags == null) {
       flags = {};
     }
-    assertType(regex, [RegExp, Object]);
+    assertType(regex, RegExp.or(Object));
     assertType(flags, Object);
     ref = this._regexFlags;
     for (name in ref) {
