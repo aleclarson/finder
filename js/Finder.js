@@ -8,10 +8,7 @@ Null = require("Null");
 
 Type = require("Type");
 
-type = Type("Finder", function(target) {
-  this.target = target;
-  return this.next();
-});
+type = Type("Finder");
 
 type.initArgs(function(args) {
   if (isType(args[0], Finder.optionTypes.regex)) {
@@ -26,34 +23,9 @@ type.defineOptions({
   target: String.or(Null)
 });
 
-type.defineGetters({
-  groups: function() {
-    return this._groups;
-  }
-});
-
 type.defineValues({
   _groups: function() {
     return [];
-  }
-});
-
-type.definePrototype({
-  _parenRegex: {
-    lazy: function() {
-      var chars;
-      chars = "(|)".split("").map(function(char) {
-        return "\\" + char;
-      });
-      return RegExp("(" + chars.join("|") + ")", "g");
-    }
-  },
-  _regexFlags: {
-    value: {
-      global: "g",
-      ignoreCase: "i",
-      multiline: "m"
-    }
   }
 });
 
@@ -66,43 +38,11 @@ type.defineProperties({
       return newValue;
     }
   },
-  pattern: {
-    get: function() {
-      return this._regex.source;
-    },
-    set: function(newValue) {
-      var flags;
-      flags = {
-        global: true
-      };
-      if (this._regex) {
-        if (this._regex.multiline) {
-          flags.multiline = true;
-        }
-        if (this._regex.ignoreCase) {
-          flags.ignoreCase = true;
-        }
-      }
-      return this._regex = this._createRegex(newValue, flags);
-    }
-  },
   group: {
     value: 0,
     willSet: function(newValue) {
       assertType(newValue, Number);
       return newValue;
-    }
-  },
-  offset: {
-    get: function() {
-      return this._regex.lastIndex;
-    },
-    set: function(newValue) {
-      assertType(newValue, Number);
-      if (newValue < 0) {
-        throw Error("'offset' must be >= 0!");
-      }
-      return this._regex.lastIndex = newValue;
     }
   },
   _regex: {
@@ -136,6 +76,68 @@ type.defineProperties({
       if ((oldValue === null) || (newValue.source !== oldValue.source)) {
         return this._groups = this._parseRegexGroups(newValue.source);
       }
+    }
+  }
+});
+
+type.defineFunction(function(target) {
+  this.target = target;
+  return this.next();
+});
+
+type.defineGetters({
+  groups: function() {
+    return this._groups;
+  }
+});
+
+type.definePrototype({
+  pattern: {
+    get: function() {
+      return this._regex.source;
+    },
+    set: function(newValue) {
+      var flags;
+      flags = {
+        global: true
+      };
+      if (this._regex) {
+        if (this._regex.multiline) {
+          flags.multiline = true;
+        }
+        if (this._regex.ignoreCase) {
+          flags.ignoreCase = true;
+        }
+      }
+      return this._regex = this._createRegex(newValue, flags);
+    }
+  },
+  offset: {
+    get: function() {
+      return this._regex.lastIndex;
+    },
+    set: function(newValue) {
+      assertType(newValue, Number);
+      if (newValue < 0) {
+        throw Error("'offset' must be >= 0!");
+      }
+      return this._regex.lastIndex = newValue;
+    }
+  },
+  _parenRegex: {
+    lazy: function() {
+      var chars;
+      chars = "(|)".split("").map(function(char) {
+        return "\\" + char;
+      });
+      return RegExp("(" + chars.join("|") + ")", "g");
+    }
+  },
+  _regexFlags: {
+    value: {
+      global: "g",
+      ignoreCase: "i",
+      multiline: "m"
     }
   }
 });

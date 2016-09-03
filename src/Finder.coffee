@@ -4,9 +4,7 @@ isType = require "isType"
 Null = require "Null"
 Type = require "Type"
 
-type = Type "Finder", (target) ->
-  @target = target
-  @next()
+type = Type "Finder"
 
 type.initArgs (args) ->
   if isType args[0], Finder.optionTypes.regex
@@ -17,25 +15,9 @@ type.defineOptions
   regex: RegExp.or(String, Null)
   target: String.or(Null)
 
-type.defineGetters
-
-  groups: -> @_groups
-
 type.defineValues
 
   _groups: -> []
-
-type.definePrototype
-
-  _parenRegex: lazy: ->
-    chars = "(|)".split("").map (char) -> "\\" + char
-    return RegExp "(" + chars.join("|") + ")", "g"
-
-  _regexFlags: value: {
-    global: "g"
-    ignoreCase: "i"
-    multiline: "m"
-  }
 
 type.defineProperties
 
@@ -46,33 +28,15 @@ type.defineProperties
       @offset = 0
       return newValue
 
-  pattern:
-    get: -> @_regex.source
-    set: (newValue) ->
-      flags = { global: yes } # This forces 'lastIndex' to be remembered.
-      if @_regex
-        flags.multiline = yes if @_regex.multiline
-        flags.ignoreCase = yes if @_regex.ignoreCase
-      @_regex = @_createRegex newValue, flags
-
   group:
     value: 0
     willSet: (newValue) ->
       assertType newValue, Number
       return newValue
 
-  offset:
-    get: -> @_regex.lastIndex
-    set: (newValue) ->
-      assertType newValue, Number
-
-      if newValue < 0
-        throw Error "'offset' must be >= 0!"
-
-      @_regex.lastIndex = newValue
-
   _regex:
     value: null
+
     willSet: (newValue) ->
       assertType newValue, Finder.optionTypes.regex
       unless newValue?
@@ -86,10 +50,55 @@ type.defineProperties
         flags.ignoreCase = yes if newValue.ignoreCase
         return @_createRegex newValue.source, flags
       return newValue
+
     didSet: (newValue, oldValue) ->
       @offset = 0
       if (oldValue is null) or (newValue.source isnt oldValue.source)
         @_groups = @_parseRegexGroups newValue.source
+
+
+#
+# Prototype
+#
+
+type.defineFunction (target) ->
+  @target = target
+  @next()
+
+type.defineGetters
+
+  groups: -> @_groups
+
+type.definePrototype
+
+  pattern:
+    get: -> @_regex.source
+    set: (newValue) ->
+      flags = { global: yes } # This forces 'lastIndex' to be remembered.
+      if @_regex
+        flags.multiline = yes if @_regex.multiline
+        flags.ignoreCase = yes if @_regex.ignoreCase
+      @_regex = @_createRegex newValue, flags
+
+  offset:
+    get: -> @_regex.lastIndex
+    set: (newValue) ->
+      assertType newValue, Number
+
+      if newValue < 0
+        throw Error "'offset' must be >= 0!"
+
+      @_regex.lastIndex = newValue
+
+  _parenRegex: lazy: ->
+    chars = "(|)".split("").map (char) -> "\\" + char
+    return RegExp "(" + chars.join("|") + ")", "g"
+
+  _regexFlags: value: {
+    global: "g"
+    ignoreCase: "i"
+    multiline: "m"
+  }
 
 type.willBuild ->
 
