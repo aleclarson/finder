@@ -90,9 +90,7 @@ type.definePrototype
 
       @_regex.lastIndex = newValue
 
-  _parenRegex: lazy: ->
-    chars = "(|)".split("").map (char) -> "\\" + char
-    return RegExp "(" + chars.join("|") + ")", "g"
+  _parenRegex: lazy: -> /(\(|\))/g
 
   _regexFlags: value: {
     global: "g"
@@ -233,9 +231,6 @@ type.defineMethods
 
         paren = parens.pop()
         groups[paren.group] = pattern.slice paren.index, regex.lastIndex - 1
-
-      else if char is "|"
-        parens.pop()
 
     return groups
 
