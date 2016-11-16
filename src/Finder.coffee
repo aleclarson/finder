@@ -1,44 +1,23 @@
 
 assertType = require "assertType"
 isType = require "isType"
-assert = require "assert"
 Null = require "Null"
 Type = require "Type"
 
-type = Type "Finder", (target) ->
-  @target = target
-  @next()
+type = Type "Finder"
+
+type.initArgs (args) ->
+  if isType args[0], Finder.optionTypes.regex
+    args[0] = regex: args[0]
+  return
 
 type.defineOptions
-  regex: [ RegExp, String, Null ]
-  target: [ String, Null ]
-
-type.createArguments (args) ->
-
-  if isType args[0], Finder.optionTypes.regex
-    args[0] = { regex: args[0] }
-
-  return args
-
-type.defineGetters
-
-  groups: -> @_groups
+  regex: RegExp.or(String, Null)
+  target: String.or(Null)
 
 type.defineValues
 
   _groups: -> []
-
-type.definePrototype
-
-  _parenRegex: lazy: ->
-    chars = "(|)".split("").map (char) -> "\\" + char
-    return RegExp "(" + chars.join("|") + ")", "g"
-
-  _regexFlags: value: {
-    global: "g"
-    ignoreCase: "i"
-    multiline: "m"
-  }
 
 type.defineProperties
 
@@ -49,30 +28,15 @@ type.defineProperties
       @offset = 0
       return newValue
 
-  pattern:
-    get: -> @_regex.source
-    set: (newValue) ->
-      flags = { global: yes } # This forces 'lastIndex' to be remembered.
-      if @_regex
-        flags.multiline = yes if @_regex.multiline
-        flags.ignoreCase = yes if @_regex.ignoreCase
-      @_regex = @_createRegex newValue, flags
-
   group:
     value: 0
     willSet: (newValue) ->
       assertType newValue, Number
       return newValue
 
-  offset:
-    get: -> @_regex.lastIndex
-    set: (newValue) ->
-      assertType newValue, Number
-      assert newValue >= 0, "'offset' must be >= 0!"
-      @_regex.lastIndex = newValue
-
   _regex:
     value: null
+
     willSet: (newValue) ->
       assertType newValue, Finder.optionTypes.regex
       unless newValue?
@@ -86,10 +50,53 @@ type.defineProperties
         flags.ignoreCase = yes if newValue.ignoreCase
         return @_createRegex newValue.source, flags
       return newValue
+
     didSet: (newValue, oldValue) ->
       @offset = 0
       if (oldValue is null) or (newValue.source isnt oldValue.source)
         @_groups = @_parseRegexGroups newValue.source
+
+
+#
+# Prototype
+#
+
+type.defineFunction (target) ->
+  @target = target
+  @next()
+
+type.defineGetters
+
+  groups: -> @_groups
+
+type.definePrototype
+
+  pattern:
+    get: -> @_regex.source
+    set: (newValue) ->
+      flags = { global: yes } # This forces 'lastIndex' to be remembered.
+      if @_regex
+        flags.multiline = yes if @_regex.multiline
+        flags.ignoreCase = yes if @_regex.ignoreCase
+      @_regex = @_createRegex newValue, flags
+
+  offset:
+    get: -> @_regex.lastIndex
+    set: (newValue) ->
+      assertType newValue, Number
+
+      if newValue < 0
+        throw Error "'offset' must be >= 0!"
+
+      @_regex.lastIndex = newValue
+
+  _parenRegex: lazy: -> /(\(|\))/g
+
+  _regexFlags: value: {
+    global: "g"
+    ignoreCase: "i"
+    multiline: "m"
+  }
 
 type.willBuild ->
 
@@ -121,11 +128,17 @@ type.initInstance (options) ->
 type.defineMethods
 
   next: ->
+
     if @offset < 0
       return null
+
     match = @_regex.exec @target
-    assert @group < @groups.length, { @group, @groups, reason: "Index of capturing group is out of bounds!" }
+
+    if @group >= @groups.length
+      throw Error "Index of capturing group is out of bounds!"
+
     result = null
+
     if match?
       if @group is null
         result = match.slice 1
@@ -133,25 +146,33 @@ type.defineMethods
         result.string = match[0]
       else
         result = match[@group]
+
     if result?
       return result
+
     @_regex.lastIndex = -1
     return null
 
   each: (target, iterator) ->
+
     if arguments.length is 1
       iterator = target
       target = @target
+
     assertType target, String
     assertType iterator, Function
+
     @_each target, iterator
 
   map: (target, iterator) ->
+
     if arguments.length is 1
       iterator = target
       target = @target
+
     assertType target, String
     assertType iterator, Function
+
     results = []
     @_each target, (match, index) ->
       results.push iterator match, index
@@ -204,18 +225,18 @@ type.defineMethods
           group: ++groupIndex
 
       else if char is ")"
-        assert parens.length, "Unexpected right parenthesis!"
+
+        if not parens.length
+          throw Error "Unexpected right parenthesis!"
+
         paren = parens.pop()
         groups[paren.group] = pattern.slice paren.index, regex.lastIndex - 1
-
-      else if char is "|"
-        parens.pop()
 
     return groups
 
   _parseRegexFlags: (regex, flags = {}) ->
 
-    assertType regex, [ RegExp, Object ]
+    assertType regex, RegExp.or Object
     assertType flags, Object
 
     for name, flag of @_regexFlags

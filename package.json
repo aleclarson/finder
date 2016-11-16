@@ -1,21 +1,18 @@
 {
   "name": "finder",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "main": "js/Finder",
-  "lotus": {
-    "plugins": [
-      "lotus-coffee"
-    ]
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/aleclarson/finder.git"
+  "plugins": [
+    "lotus-coffee"
+  ],
+  "scripts": {
+    "build": "coffee-build -v 1.11.x -b -o js src",
+    "postinstall": "npm run build"
   },
   "dependencies": {
-    "Null": "aleclarson/Null#1.0.0",
-    "Type": "aleclarson/Type#1.1.0",
-    "assert": "aleclarson/assert#1.0.0",
-    "assertType": "aleclarson/assertType#2.0.0",
-    "isType": "aleclarson/isType#1.0.0"
+    "Null": "aleclarson/Null#1.0.1",
+    "Type": "aleclarson/Type#2.1.0",
+    "assertType": "aleclarson/assertType#2.0.1",
+    "isType": "aleclarson/isType#1.0.1"
   }
 }
