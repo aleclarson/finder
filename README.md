@@ -1,5 +1,5 @@
 
-# finder 2.0.1 ![stable](https://img.shields.io/badge/stability-stable-4EBA0F.svg?style=flat)
+# finder v2.0.2 ![stable](https://img.shields.io/badge/stability-stable-4EBA0F.svg?style=flat)
 
 The `Finder` class provides a useful abstraction over the `RegExp` class.
 
