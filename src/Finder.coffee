@@ -6,14 +6,16 @@ Type = require "Type"
 
 type = Type "Finder"
 
-type.initArgs (args) ->
-  if isType args[0], Finder.optionTypes.regex
-    args[0] = regex: args[0]
-  return
+type.defineArgs ->
 
-type.defineOptions
-  regex: RegExp.or(String, Null)
-  target: String.or(Null)
+  create: (args) ->
+    if isType args[0], Finder.optionTypes.regex
+      args[0] = regex: args[0]
+    return args
+
+  types:
+    regex: RegExp.or String, Null
+    target: String.or Null
 
 type.defineValues
 
@@ -36,7 +38,6 @@ type.defineProperties
 
   _regex:
     value: null
-
     willSet: (newValue) ->
       assertType newValue, Finder.optionTypes.regex
       unless newValue?
@@ -50,12 +51,23 @@ type.defineProperties
         flags.ignoreCase = yes if newValue.ignoreCase
         return @_createRegex newValue.source, flags
       return newValue
-
     didSet: (newValue, oldValue) ->
       @offset = 0
       if (oldValue is null) or (newValue.source isnt oldValue.source)
         @_groups = @_parseRegexGroups newValue.source
+      return
 
+type.initInstance (options = {}) ->
+
+  @_regex = options.regex
+
+  # If no 'group' is specified, use the first one if it exists.
+  # Otherwise, it defaults to returning the whole expression.
+  @group = options.group ?= if @_groups.length > 1 then 1 else 0
+
+  if options.target?
+    @target = options.target
+  return
 
 #
 # Prototype
@@ -65,11 +77,10 @@ type.defineFunction (target) ->
   @target = target
   @next()
 
-type.defineGetters
-
-  groups: -> @_groups
-
 type.definePrototype
+
+  groups:
+    get: -> @_groups
 
   pattern:
     get: -> @_regex.source
@@ -113,17 +124,6 @@ type.willBuild ->
         @_regex = @_createRegex @pattern, flags
 
   type.defineProperties flagProps
-
-type.initInstance (options) ->
-
-  @_regex = options.regex
-
-  # If no 'group' is specified, use the first one if it exists.
-  # Otherwise, it defaults to returning the whole expression.
-  @group = options.group ?= if @_groups.length > 1 then 1 else 0
-
-  if options.target?
-    @target = options.target
 
 type.defineMethods
 
