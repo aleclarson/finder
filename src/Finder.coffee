@@ -17,9 +17,9 @@ type.defineArgs ->
     regex: RegExp.or String, Null
     target: String.or Null
 
-type.defineValues
+type.defineValues ->
 
-  _groups: -> []
+  _groups: []
 
 type.defineProperties
 
