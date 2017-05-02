@@ -6,16 +6,14 @@ Type = require "Type"
 
 type = Type "Finder"
 
-type.defineArgs ->
+type.createArgs (args) ->
+  if isType args[0], Finder.optionTypes.regex
+    args[0] = regex: args[0]
+  return args
 
-  create: (args) ->
-    if isType args[0], Finder.optionTypes.regex
-      args[0] = regex: args[0]
-    return args
-
-  types:
-    regex: RegExp.or String, Null
-    target: String.or Null
+type.defineArgs
+  regex: RegExp.or String, Null
+  target: String.or Null
 
 type.defineValues ->
 
@@ -38,6 +36,7 @@ type.defineProperties
 
   _regex:
     value: null
+
     willSet: (newValue) ->
       assertType newValue, Finder.optionTypes.regex
       unless newValue?
@@ -51,6 +50,7 @@ type.defineProperties
         flags.ignoreCase = yes if newValue.ignoreCase
         return @_createRegex newValue.source, flags
       return newValue
+
     didSet: (newValue, oldValue) ->
       @offset = 0
       if (oldValue is null) or (newValue.source isnt oldValue.source)
@@ -75,7 +75,7 @@ type.initInstance (options = {}) ->
 
 type.defineFunction (target) ->
   @target = target
-  @next()
+  return @next()
 
 type.definePrototype
 
@@ -85,11 +85,15 @@ type.definePrototype
   pattern:
     get: -> @_regex.source
     set: (newValue) ->
-      flags = { global: yes } # This forces 'lastIndex' to be remembered.
+      # This forces 'lastIndex' to be remembered.
+      flags = {global: yes}
+
       if @_regex
         flags.multiline = yes if @_regex.multiline
         flags.ignoreCase = yes if @_regex.ignoreCase
+
       @_regex = @_createRegex newValue, flags
+      return
 
   offset:
     get: -> @_regex.lastIndex
@@ -100,14 +104,7 @@ type.definePrototype
         throw Error "'offset' must be >= 0!"
 
       @_regex.lastIndex = newValue
-
-  _parenRegex: lazy: -> /(\(|\))/g
-
-  _regexFlags: value: {
-    global: "g"
-    ignoreCase: "i"
-    multiline: "m"
-  }
+      return
 
 type.willBuild ->
 
@@ -119,9 +116,13 @@ type.willBuild ->
         assertType newValue, Boolean
         return if @_regex[flag] is newValue
         flags = @_parseRegexFlags @_regex
-        if newValue then flags[flag] = newValue
+
+        if newValue
+        then flags[flag] = newValue
         else delete flags[flag]
+
         @_regex = @_createRegex @pattern, flags
+        return
 
   type.defineProperties flagProps
 
@@ -163,6 +164,7 @@ type.defineMethods
     assertType iterator, Function
 
     @_each target, iterator
+    return
 
   map: (target, iterator) ->
 
@@ -201,14 +203,13 @@ type.defineMethods
       return
 
   _parseRegexGroups: (pattern) ->
-
     assertType pattern, String
 
     parens = []
     groups = [pattern]
     groupIndex = 0
 
-    regex = @_parenRegex
+    regex = /(\(|\))/g
     regex.lastIndex = 0
 
     loop
@@ -239,7 +240,7 @@ type.defineMethods
     assertType regex, RegExp.or Object
     assertType flags, Object
 
-    for name, flag of @_regexFlags
+    for name, flag of regexFlags
 
       if regex[name] is yes
         flags[flag] = yes
@@ -277,18 +278,20 @@ type.defineMethods
 type.defineStatics
 
   find: (regex, target, group) ->
-    finder = Finder._finder
-    finder._regex = regex
-    finder.group = if group? then group else 0
-    return finder target
+    sharedFinder._regex = regex
+    sharedFinder.group = if group? then group else 0
+    return sharedFinder target
 
   test: (regex, target, group) ->
-    finder = Finder._finder
-    finder._regex = regex
-    finder.group = if group? then group else 0
-    return finder.test target
-
-  _finder: lazy: ->
-    Finder null
+    sharedFinder._regex = regex
+    sharedFinder.group = if group? then group else 0
+    return sharedFinder.test target
 
 module.exports = Finder = type.build()
+
+sharedFinder = Finder null
+
+regexFlags =
+  global: "g"
+  ignoreCase: "i"
+  multiline: "m"
